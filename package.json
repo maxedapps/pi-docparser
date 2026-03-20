@@ -1,0 +1,65 @@
+{
+  "name": "pi-docparser",
+  "version": "1.0.0",
+  "description": "Pi package that adds a document_parse tool and companion skill for parsing PDFs, Office documents, spreadsheets, and images with LiteParse.",
+  "keywords": [
+    "document-parse",
+    "documents",
+    "liteparse",
+    "ocr",
+    "pdf",
+    "pi",
+    "pi-package"
+  ],
+  "homepage": "https://maximilian-schwarzmueller.com",
+  "license": "MIT",
+  "files": [
+    "assets",
+    "extensions",
+    "skills",
+    "licenses",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "package.json"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "echo 'nothing to build'",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "typecheck": "tsc -p tsconfig.json",
+    "check:runtime": "node --input-type=module -e \"await import('./extensions/docparser/index.ts')\"",
+    "check": "oxfmt --check . && oxlint . && tsc -p tsconfig.json && node --input-type=module -e \"await import('./extensions/docparser/index.ts')\"",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@llamaindex/liteparse": "1.0.0"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-ai": "0.61.0",
+    "@mariozechner/pi-coding-agent": "0.61.0",
+    "@types/node": "^25.5.0",
+    "oxfmt": "^0.41.0",
+    "oxlint": "^1.56.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/docparser/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}
