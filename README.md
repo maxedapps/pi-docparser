@@ -59,7 +59,7 @@ pi install npm:pi-docparser
 ### Install from GitHub
 
 ```bash
-pi install git:github.com/<your-user-or-org>/pi-docparser
+pi install git:github.com/maxedapps/pi-docparser
 ```
 
 ## Example model tool calls
