@@ -13,6 +13,10 @@
   ],
   "homepage": "https://maximilian-schwarzmueller.com",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxedapps/pi-docparser.git"
+  },
   "files": [
     "assets",
     "extensions",
