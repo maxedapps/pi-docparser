@@ -60,6 +60,7 @@
     ],
     "skills": [
       "./skills"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/maxedapps/pi-docparser/main/assets/pi-docparser-preview.jpg"
   }
 }

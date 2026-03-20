@@ -62,15 +62,46 @@ pi install npm:pi-docparser
 pi install git:github.com/<your-user-or-org>/pi-docparser
 ```
 
+## Example model tool calls
+
+These are representative `document_parse` calls pi may make internally, depending on the user's request:
+
+### 1) Extract plain text from a PDF
+
+```text
+document_parse({
+  path: "./docs/contract.pdf"
+})
+```
+
+Useful when the user wants the document summarized, searched, or quoted and layout coordinates are not needed.
+
+### 2) OCR a scanned image or photo
+
+```text
+document_parse({
+  path: "./scans/receipt.jpg",
+  ocr: "auto",
+  ocrLanguage: "eng"
+})
+```
+
+Useful when the source is an image or scanned document and text must be recognized first.
+
+### 3) Extract structured JSON and PDF screenshots for selected pages
+
+```text
+document_parse({
+  path: "./reports/financial-report.pdf",
+  format: "json",
+  targetPages: "1-3",
+  screenshotPages: "1-2"
+})
+```
+
+Useful when the user cares about page layout, bounding boxes, or wants visual follow-up on specific PDF pages.
+
 ## Tool behavior notes
-
-### Path handling
-
-The tool accepts PI-style path inputs such as:
-
-- `@relative/path/to/file.pdf`
-- `~/Documents/file.pdf`
-- paths with macOS-style filename normalization quirks
 
 ### OCR notes
 
