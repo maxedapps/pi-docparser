@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning.
 
+## [1.1.0] - 2026-03-20
+
+### Changed
+
+- renamed the dependency diagnostic command from `/docparser-doctor` to `/docparser:doctor`
+- improved `/docparser:doctor` so missing dependencies are reported as normal diagnostics instead of error-style command failures
+- added a dedicated in-progress loader while automatic dependency installation commands are running
+- unified doctor install guidance and auto-install command generation, including correct Homebrew cask usage for LibreOffice on macOS
+
 ## [1.0.1] - 2026-03-20
 
 ### Changed

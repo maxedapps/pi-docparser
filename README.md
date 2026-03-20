@@ -4,7 +4,7 @@ A standalone [pi](https://shittycodingagent.ai/) package that adds a `document_p
 
 It wraps [`@llamaindex/liteparse`](https://github.com/run-llama/liteparse) so pi can parse PDFs, Office documents, spreadsheets, CSV files, and common image formats through a dedicated tool instead of ad-hoc shell commands. It can also perform OCR.
 
-When required host tools such as LibreOffice, ImageMagick, or Ghostscript are missing, the tool surfaces actionable install guidance instead of generic conversion failures and points users to `/docparser-doctor` for guided setup.
+When required host tools such as LibreOffice, ImageMagick, or Ghostscript are missing, the tool surfaces actionable install guidance instead of generic conversion failures and points users to `/docparser:doctor` for guided setup.
 
 ## What this package provides
 
@@ -169,7 +169,7 @@ Some image or vector conversion paths may also require Ghostscript.
 If parsing fails because a host dependency is missing, the extension points users to:
 
 ```text
-/docparser-doctor
+/docparser:doctor
 ```
 
 Run it inside pi to:
@@ -178,13 +178,15 @@ Run it inside pi to:
 - check whether LibreOffice, ImageMagick, and Ghostscript are available
 - optionally focus the check on a specific file path
 - suggest the most appropriate install commands for the current machine
+- report missing packages as doctor findings instead of making the command look like it failed
+- keep the UI visibly busy while automatic install commands are running
 - optionally attempt those install commands after user confirmation when that looks safe to automate
 
 Examples:
 
 ```text
-/docparser-doctor
-/docparser-doctor @./slides.pptx
+/docparser:doctor
+/docparser:doctor @./slides.pptx
 ```
 
 ## Known limitations

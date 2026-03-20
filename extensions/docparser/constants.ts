@@ -58,5 +58,5 @@ export const IMAGE_EXTENSIONS = new Set([
 
 export const GHOSTSCRIPT_REQUIRED_EXTENSIONS = new Set([".svg", ".eps", ".ps", ".ai"]);
 
-export const DOCTOR_COMMAND_NAME = "docparser-doctor";
+export const DOCTOR_COMMAND_NAME = "docparser:doctor";
 export const DOCTOR_COMMAND = `/${DOCTOR_COMMAND_NAME}`;
