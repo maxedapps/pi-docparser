@@ -1,4 +1,8 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import {
+  BorderedLoader,
+  type ExtensionAPI,
+  type ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
 
 import { DOCTOR_COMMAND, DOCTOR_COMMAND_NAME, INSTALL_COMMAND_TIMEOUT_MS } from "./constants.ts";
 import {
@@ -14,8 +18,8 @@ import { resolveDocumentTarget } from "./input.ts";
 import type {
   DependencyDiagnosis,
   InputInspection,
+  InstallCommandSpec,
   InstallStrategy,
-  UiMessageLevel,
 } from "./types.ts";
 
 function normalizeDoctorArgument(input: string): string | undefined {
@@ -38,11 +42,9 @@ function formatDoctorReport(options: {
   diagnoses: DependencyDiagnosis[];
   strategies: InstallStrategy[];
   installSummary?: string[];
-}): { text: string; level: UiMessageLevel } {
+}): string {
   const missing = options.diagnoses.filter((diagnosis) => !diagnosis.installed);
   const relevantMissing = missing.filter((diagnosis) => diagnosis.relevant);
-  const level: UiMessageLevel =
-    relevantMissing.length > 0 ? "error" : missing.length > 0 ? "warning" : "info";
   const lines = ["docparser doctor", `Platform: ${getPlatformLabel()}`];
 
   if (options.sourcePath) {
@@ -64,6 +66,14 @@ function formatDoctorReport(options: {
     lines.push(
       "This input type does not require extra host conversion packages for normal parsing.",
     );
+  } else if (relevantMissing.length > 0) {
+    lines.push("Action needed: install the missing packages listed below.");
+  } else if (missing.length > 0) {
+    lines.push(
+      "Optional host packages are missing. Install them if you plan to parse inputs that need them.",
+    );
+  } else {
+    lines.push("All relevant host dependencies are installed.");
   }
 
   lines.push("Dependency status:");
@@ -119,10 +129,7 @@ function formatDoctorReport(options: {
     }
   }
 
-  return {
-    text: lines.join("\n"),
-    level,
-  };
+  return lines.join("\n");
 }
 
 async function collectDoctorState(inspection?: InputInspection): Promise<{
@@ -163,6 +170,77 @@ async function selectInstallStrategy(
   return strategies.find((strategy) => strategy.label === selectedLabel);
 }
 
+async function runInstallCommands(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext,
+  commands: InstallCommandSpec[],
+): Promise<string[]> {
+  const runInstallLoop = async () => {
+    const installSummary: string[] = [];
+
+    for (const command of commands) {
+      const result = await pi.exec(command.command, command.args, {
+        timeout: command.timeoutMs ?? INSTALL_COMMAND_TIMEOUT_MS,
+      });
+      const success = result.code === 0 && !result.killed;
+
+      installSummary.push(
+        `${command.description}: ${success ? "ok" : `failed (exit ${result.code}${result.killed ? ", killed" : ""})`}`,
+      );
+
+      if (!success) {
+        const outputSummary = summarizeInstallOutput(result.stdout, result.stderr);
+        if (outputSummary) {
+          installSummary.push(`Command output:\n${outputSummary}`);
+        }
+      }
+    }
+
+    return installSummary;
+  };
+
+  let ranCustomUi = false;
+  let installSummary: string[] | undefined;
+  let installError: unknown;
+
+  await ctx.ui.custom<boolean | undefined>((tui, theme, _kb, done) => {
+    ranCustomUi = true;
+
+    const loader = new BorderedLoader(
+      tui,
+      theme,
+      "Installing missing packages. Please do not quit pi until this finishes.",
+      { cancellable: false },
+    );
+
+    runInstallLoop()
+      .then((summary) => {
+        installSummary = summary;
+        done(true);
+      })
+      .catch((error) => {
+        installError = error;
+        done(false);
+      });
+
+    return loader;
+  });
+
+  if (!ranCustomUi) {
+    ctx.ui.notify(
+      "Installing missing packages. This can take a few minutes. Please wait for the final doctor report.",
+      "info",
+    );
+    return runInstallLoop();
+  }
+
+  if (installError) {
+    throw installError;
+  }
+
+  return installSummary ?? [];
+}
+
 export function registerDoctorCommand(pi: ExtensionAPI) {
   pi.registerCommand(DOCTOR_COMMAND_NAME, {
     description:
@@ -188,6 +266,8 @@ export function registerDoctorCommand(pi: ExtensionAPI) {
         return;
       }
 
+      await ctx.waitForIdle();
+
       try {
         let target: Awaited<ReturnType<typeof resolveDocumentTarget>> | undefined;
         try {
@@ -207,7 +287,7 @@ export function registerDoctorCommand(pi: ExtensionAPI) {
           diagnoses: initialState.diagnoses,
           strategies: initialState.strategies,
         });
-        ctx.ui.notify(initialReport.text, initialReport.level);
+        ctx.ui.notify(initialReport, "info");
 
         if (
           initialState.missingDependencies.length === 0 ||
@@ -250,25 +330,7 @@ export function registerDoctorCommand(pi: ExtensionAPI) {
           return;
         }
 
-        const installSummary: string[] = [];
-        for (const command of selectedStrategy.commands) {
-          ctx.ui.notify(`Running: ${command.display}`, "info");
-          const result = await pi.exec(command.command, command.args, {
-            timeout: command.timeoutMs ?? INSTALL_COMMAND_TIMEOUT_MS,
-          });
-          const success = result.code === 0 && !result.killed;
-
-          installSummary.push(
-            `${command.description}: ${success ? "ok" : `failed (exit ${result.code}${result.killed ? ", killed" : ""})`}`,
-          );
-
-          if (!success) {
-            const outputSummary = summarizeInstallOutput(result.stdout, result.stderr);
-            if (outputSummary) {
-              installSummary.push(`Command output:\n${outputSummary}`);
-            }
-          }
-        }
+        const installSummary = await runInstallCommands(pi, ctx, selectedStrategy.commands);
 
         const finalState = await collectDoctorState(target?.inspection);
         const finalReport = formatDoctorReport({
@@ -279,7 +341,7 @@ export function registerDoctorCommand(pi: ExtensionAPI) {
           strategies: finalState.strategies,
           installSummary,
         });
-        ctx.ui.notify(finalReport.text, finalReport.level);
+        ctx.ui.notify(finalReport, "info");
       } catch (error) {
         ctx.ui.notify(
           `docparser doctor failed: ${error instanceof Error ? error.message : String(error)}`,

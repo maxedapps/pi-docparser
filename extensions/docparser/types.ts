@@ -31,7 +31,6 @@ export type PackageManagerId =
   | "apk"
   | "winget"
   | "choco";
-export type UiMessageLevel = "info" | "warning" | "error";
 
 export interface InputInspection {
   extension: string;

@@ -5,11 +5,8 @@ import { access } from "node:fs/promises";
 
 import {
   DOCTOR_COMMAND,
-  GHOSTSCRIPT_MISSING_MESSAGE,
   GHOSTSCRIPT_REQUIRED_EXTENSIONS,
-  IMAGEMAGICK_MISSING_MESSAGE,
   INSTALL_COMMAND_TIMEOUT_MS,
-  LIBREOFFICE_MISSING_MESSAGE,
 } from "./constants.ts";
 import type {
   DependencyDiagnosis,
@@ -82,6 +79,7 @@ const PACKAGE_NAMES: Record<PackageManagerId, Record<DependencyName, string>> = 
     ghostscript: "ghostscript",
   },
 };
+const BREW_CASK_DEPENDENCIES = new Set<DependencyName>(["libreoffice"]);
 const LINUX_MANAGERS: Array<{ id: PackageManagerId; label: string }> = [
   { id: "apt-get", label: "APT" },
   { id: "dnf", label: "DNF" },
@@ -140,75 +138,8 @@ async function findFirstAvailableCommand(
   return undefined;
 }
 
-function formatGhostscriptMissingMessage(extension: string): string {
-  const fileTypeLabel = (extension || "vector").replace(/^\./, "").toUpperCase();
-  return GHOSTSCRIPT_MISSING_MESSAGE.replace("%s", fileTypeLabel);
-}
-
-const DEPENDENCY_METADATA: Record<
-  DependencyName,
-  {
-    label: string;
-    summary: string;
-    findCommand: () => Promise<string | undefined>;
-    getMissingMessage: (inspection?: InputInspection) => string;
-  }
-> = {
-  libreoffice: {
-    label: "LibreOffice",
-    summary:
-      "Needed for Office documents and spreadsheets such as DOCX, PPTX, XLSX, CSV, and similar formats.",
-    findCommand: () =>
-      findFirstAvailableCommand(
-        ["libreoffice", "soffice"],
-        process.platform === "darwin"
-          ? [
-              "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-              "/Applications/LibreOffice.app/Contents/MacOS/libreoffice",
-            ]
-          : process.platform === "win32"
-            ? [
-                "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
-                "C:\\Program Files\\LibreOffice\\program\\libreoffice.exe",
-                "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
-                "C:\\Program Files (x86)\\LibreOffice\\program\\libreoffice.exe",
-              ]
-            : [],
-      ),
-    getMissingMessage: () => LIBREOFFICE_MISSING_MESSAGE,
-  },
-  imagemagick: {
-    label: "ImageMagick",
-    summary:
-      "Needed for image inputs such as PNG, JPG, TIFF, WebP, SVG, and similar formats that must be converted before parsing.",
-    findCommand: () =>
-      findFirstAvailableCommand(process.platform === "win32" ? ["magick"] : ["magick", "convert"]),
-    getMissingMessage: () => IMAGEMAGICK_MISSING_MESSAGE,
-  },
-  ghostscript: {
-    label: "Ghostscript",
-    summary:
-      "Needed for vector image conversion paths such as SVG, EPS, PS, and AI when ImageMagick delegates rendering.",
-    findCommand: () => findFirstAvailableCommand(["gs", "gswin64c", "gswin32c"]),
-    getMissingMessage: (inspection) =>
-      formatGhostscriptMissingMessage(inspection?.extension || ".svg"),
-  },
-};
-
 function getPackageNames(manager: PackageManagerId, dependencyNames: DependencyName[]): string[] {
   return dependencyNames.map((dependencyName) => PACKAGE_NAMES[manager][dependencyName]);
-}
-
-function getLinuxInstallArgs(managerId: PackageManagerId, packageNames: string[]): string[] {
-  if (managerId === "pacman") {
-    return ["-Sy", "--noconfirm", ...packageNames];
-  }
-
-  if (managerId === "apk") {
-    return ["add", ...packageNames];
-  }
-
-  return ["install", "-y", ...packageNames];
 }
 
 function buildCommandDisplay(command: string, args: string[], displayPrefix = ""): string {
@@ -241,6 +172,52 @@ function createCommandSpec(
     display: buildCommandDisplay(command, args, displayPrefix),
     timeoutMs: options.timeoutMs,
   };
+}
+
+function createDisplayCommand(manager: PackageManagerId, dependencyName: DependencyName): string {
+  if (manager === "brew" && BREW_CASK_DEPENDENCIES.has(dependencyName)) {
+    return buildCommandDisplay("brew", ["install", "--cask", PACKAGE_NAMES.brew[dependencyName]]);
+  }
+
+  if (manager === "choco") {
+    return buildCommandDisplay("choco", ["install", PACKAGE_NAMES.choco[dependencyName]]);
+  }
+
+  return buildCommandDisplay(manager, ["install", PACKAGE_NAMES[manager][dependencyName]]);
+}
+
+function buildGuidedInstallMessage(
+  dependencyName: DependencyName,
+  summary: string,
+  options: { requiredForFileType?: string } = {},
+): string {
+  const macCommand = createDisplayCommand("brew", dependencyName);
+  const ubuntuCommand = createDisplayCommand("apt-get", dependencyName);
+  const windowsCommand = createDisplayCommand("choco", dependencyName);
+  const requirement = options.requiredForFileType
+    ? ` to convert ${options.requiredForFileType} files`
+    : "";
+
+  return `${summary}${requirement}. On macOS: ${macCommand}, On Ubuntu: ${ubuntuCommand}, On Windows: ${windowsCommand}`;
+}
+
+function formatGhostscriptMissingMessage(extension: string): string {
+  const fileTypeLabel = (extension || "vector").replace(/^\./, "").toUpperCase();
+  return buildGuidedInstallMessage("ghostscript", `Ghostscript is required but is not installed`, {
+    requiredForFileType: fileTypeLabel,
+  });
+}
+
+function getLinuxInstallArgs(managerId: PackageManagerId, packageNames: string[]): string[] {
+  if (managerId === "pacman") {
+    return ["-Sy", "--noconfirm", ...packageNames];
+  }
+
+  if (managerId === "apk") {
+    return ["add", ...packageNames];
+  }
+
+  return ["install", "-y", ...packageNames];
 }
 
 async function getUnixPrivilegeContext(): Promise<UnixPrivilegeContext> {
@@ -302,6 +279,40 @@ function buildLinuxInstallCommands(
   return commands;
 }
 
+function buildBrewInstallCommands(dependencyNames: DependencyName[]): InstallCommandSpec[] {
+  const formulaDependencies = dependencyNames.filter(
+    (dependencyName) => !BREW_CASK_DEPENDENCIES.has(dependencyName),
+  );
+  const caskDependencies = dependencyNames.filter((dependencyName) =>
+    BREW_CASK_DEPENDENCIES.has(dependencyName),
+  );
+  const commands: InstallCommandSpec[] = [];
+
+  if (formulaDependencies.length > 0) {
+    commands.push(
+      createCommandSpec(
+        "Install missing document parser dependencies via Homebrew",
+        "brew",
+        ["install", ...getPackageNames("brew", formulaDependencies)],
+        { timeoutMs: INSTALL_COMMAND_TIMEOUT_MS },
+      ),
+    );
+  }
+
+  if (caskDependencies.length > 0) {
+    commands.push(
+      createCommandSpec(
+        "Install missing document parser dependencies via Homebrew Cask",
+        "brew",
+        ["install", "--cask", ...getPackageNames("brew", caskDependencies)],
+        { timeoutMs: INSTALL_COMMAND_TIMEOUT_MS },
+      ),
+    );
+  }
+
+  return commands;
+}
+
 function buildWingetCommands(dependencyNames: DependencyName[]): InstallCommandSpec[] {
   return dependencyNames.map((dependencyName) =>
     createCommandSpec(
@@ -319,6 +330,64 @@ function buildWingetCommands(dependencyNames: DependencyName[]): InstallCommandS
     ),
   );
 }
+
+const DEPENDENCY_METADATA: Record<
+  DependencyName,
+  {
+    label: string;
+    summary: string;
+    findCommand: () => Promise<string | undefined>;
+    getMissingMessage: (inspection?: InputInspection) => string;
+  }
+> = {
+  libreoffice: {
+    label: "LibreOffice",
+    summary:
+      "Needed for Office documents and spreadsheets such as DOCX, PPTX, XLSX, CSV, and similar formats.",
+    findCommand: () =>
+      findFirstAvailableCommand(
+        ["libreoffice", "soffice"],
+        process.platform === "darwin"
+          ? [
+              "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+              "/Applications/LibreOffice.app/Contents/MacOS/libreoffice",
+            ]
+          : process.platform === "win32"
+            ? [
+                "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+                "C:\\Program Files\\LibreOffice\\program\\libreoffice.exe",
+                "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
+                "C:\\Program Files (x86)\\LibreOffice\\program\\libreoffice.exe",
+              ]
+            : [],
+      ),
+    getMissingMessage: () =>
+      buildGuidedInstallMessage(
+        "libreoffice",
+        "LibreOffice is not installed. Please install LibreOffice to convert office documents",
+      ),
+  },
+  imagemagick: {
+    label: "ImageMagick",
+    summary:
+      "Needed for image inputs such as PNG, JPG, TIFF, WebP, SVG, and similar formats that must be converted before parsing.",
+    findCommand: () =>
+      findFirstAvailableCommand(process.platform === "win32" ? ["magick"] : ["magick", "convert"]),
+    getMissingMessage: () =>
+      buildGuidedInstallMessage(
+        "imagemagick",
+        "ImageMagick is not installed. Please install ImageMagick to convert images",
+      ),
+  },
+  ghostscript: {
+    label: "Ghostscript",
+    summary:
+      "Needed for vector image conversion paths such as SVG, EPS, PS, and AI when ImageMagick delegates rendering.",
+    findCommand: () => findFirstAvailableCommand(["gs", "gswin64c", "gswin32c"]),
+    getMissingMessage: (inspection) =>
+      formatGhostscriptMissingMessage(inspection?.extension || ".svg"),
+  },
+};
 
 export function getRelevantDependencyNames(inspection?: InputInspection): Set<DependencyName> {
   if (!inspection) {
@@ -409,14 +478,7 @@ export async function buildInstallStrategies(
         label: "Homebrew",
         autoRunnable: brewAvailable,
         autoRunBlockedReason: brewAvailable ? undefined : "Homebrew was not detected on PATH.",
-        commands: [
-          createCommandSpec(
-            "Install missing document parser dependencies via Homebrew",
-            "brew",
-            ["install", ...getPackageNames("brew", missingNames)],
-            { timeoutMs: INSTALL_COMMAND_TIMEOUT_MS },
-          ),
-        ],
+        commands: buildBrewInstallCommands(missingNames),
       },
     ];
   }

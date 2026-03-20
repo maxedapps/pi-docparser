@@ -58,14 +58,5 @@ export const IMAGE_EXTENSIONS = new Set([
 
 export const GHOSTSCRIPT_REQUIRED_EXTENSIONS = new Set([".svg", ".eps", ".ps", ".ai"]);
 
-export const LIBREOFFICE_MISSING_MESSAGE =
-  "LibreOffice is not installed. Please install LibreOffice to convert office documents. On macOS: brew install --cask libreoffice, On Ubuntu: apt-get install libreoffice, On Windows: choco install libreoffice-fresh";
-
-export const IMAGEMAGICK_MISSING_MESSAGE =
-  "ImageMagick is not installed. Please install ImageMagick to convert images. On macOS: brew install imagemagick, On Ubuntu: apt-get install imagemagick, On Windows: choco install imagemagick.app";
-
-export const GHOSTSCRIPT_MISSING_MESSAGE =
-  "Ghostscript is required to convert %s files but is not installed. On macOS: brew install ghostscript, On Ubuntu: apt-get install ghostscript, On Windows: choco install ghostscript";
-
 export const DOCTOR_COMMAND_NAME = "docparser-doctor";
 export const DOCTOR_COMMAND = `/${DOCTOR_COMMAND_NAME}`;
