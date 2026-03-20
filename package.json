@@ -1,6 +1,6 @@
 {
   "name": "pi-docparser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pi package that adds a document_parse tool and companion skill for parsing PDFs, Office documents, spreadsheets, and images with LiteParse.",
   "keywords": [
     "document-parse",
