@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning.
 
+## [1.1.1] - 2026-03-20
+
+### Fixed
+
+- added explicit `extension` and `skill` npm keywords so the Pi package gallery can show the correct package type badges for `pi-docparser`
+
 ## [1.1.0] - 2026-03-20
 
 ### Changed
