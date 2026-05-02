@@ -9,6 +9,7 @@ import {
   getMissingHostDependencyMessage,
   isDependencySetupMessage,
 } from "./deps.ts";
+import { t } from "./i18n.ts";
 import { resolveDocumentTarget } from "./input.ts";
 import { buildDocumentParsePlan } from "./request.ts";
 import { DocumentParseSchema } from "./schema.ts";
@@ -199,21 +200,16 @@ function buildSummary(options: {
 export function registerDocumentParseTool(pi: ExtensionAPI) {
   pi.registerTool({
     name: "document_parse",
-    label: "Document Parse",
-    description:
-      "Parse local documents with bundled LiteParse support. Supports PDF, DOCX, PPTX, XLSX, CSV, and common images. Returns parsed output saved to temp files plus metadata and optional PDF screenshots.",
-    promptSnippet:
-      "Parse local documents to text or JSON with OCR, bounding boxes, page ranges, and optional PDF screenshots. Full results are saved to temp files for follow-up inspection with read.",
-    promptGuidelines: [
-      "Use this tool instead of composing LiteParse CLI commands manually when the user wants local document parsing.",
-      "After this tool returns output or screenshot paths, use read on those files when you need the full parsed content or to inspect generated screenshots.",
-    ],
+    label: t("tool.label"),
+    description: t("tool.description"),
+    promptSnippet: t("tool.promptSnippet"),
+    promptGuidelines: [t("tool.guideline.useTool"), t("tool.guideline.readOutput")],
     parameters: DocumentParseSchema,
 
     async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
       if (signal?.aborted) {
         return {
-          content: [{ type: "text", text: "Document parsing was cancelled before it started." }],
+          content: [{ type: "text", text: t("progress.cancelled") }],
           details: {},
         };
       }
@@ -230,7 +226,7 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
         const plan = buildDocumentParsePlan(params);
         const warnings = [...plan.warnings];
 
-        emit("Checking host dependencies...");
+        emit(t("progress.checkDeps"));
         const missingHostDependencyMessage = await getMissingHostDependencyMessage(
           input.inspection,
         );
@@ -238,12 +234,12 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
           throw new Error(missingHostDependencyMessage);
         }
 
-        emit("Loading LiteParse...");
+        emit(t("progress.loading"));
         const { LiteParse } = await loadLiteParseModule();
         const parser = new LiteParse(plan.parserConfig);
         const outputDir = await mkdtemp(join(tmpdir(), "pi-document-parse-"));
 
-        emit(`Parsing document: ${input.sourcePath}`);
+        emit(t("progress.parsing", { path: input.sourcePath }));
         const parseResult = await parser.parse(input.resolvedPath, true);
         const outputFormat = plan.parserConfig.outputFormat ?? "text";
         const outputText =
@@ -252,7 +248,7 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
             : parseResult.text;
         const outputPath = join(outputDir, outputFormat === "json" ? "parsed.json" : "parsed.txt");
         await writeFile(outputPath, outputText, "utf8");
-        emit(`Saved parsed output to ${outputPath}`);
+        emit(t("progress.saved", { path: outputPath }));
 
         const screenshotResult = await renderScreenshots({
           parser,
