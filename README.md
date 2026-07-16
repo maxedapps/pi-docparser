@@ -30,7 +30,14 @@ Ships a `parse-document` skill that teaches agents to:
 
 ## LiteParse v2 behavior
 
-LiteParse v2 is a Rust rewrite using PDFium for text extraction/rendering and native Tesseract for OCR. Compared with v1, it is substantially faster and exposes a simpler Node API:
+LiteParse v2 is a Rust rewrite using PDFium for text extraction/rendering and native Tesseract for OCR. Compared with v1, it is substantially faster and exposes a simpler Node API.
+
+`pi-docparser` adds two safety boundaries around that native code:
+
+1. all document operations enter a module-global FIFO queue, so parallel Pi tool calls never invoke PDFium concurrently
+2. every operation runs in a one-shot child process, so a native `SIGABRT` or `SIGSEGV` terminates only the worker and is reported as a normal tool error while Pi keeps running
+
+The bundled LiteParse version also contains its own process-global PDFium mutex. The outer queue and process boundary are intentional defense in depth.
 
 ```ts
 const result = await parser.parse("document.pdf");
@@ -169,6 +176,8 @@ document_parse({
 
 ### `document_parse`
 
+- Queues safely behind any other active document operation; concurrent tool calls are processed one at a time.
+- Runs native parsing in an isolated child process so a PDFium crash cannot terminate Pi.
 - Saves full parsed output to a temporary `.txt` or `.json` file.
 - Returns a short preview to avoid flooding model context.
 - Supports `targetPages`, OCR options, `password`, `tessdataPath`, and optional `screenshotPages`.
@@ -259,8 +268,18 @@ Examples:
 /docparser:doctor @./slides.pptx
 ```
 
+## Native worker safety and timeouts
+
+All three tools share one FIFO queue. If an agent submits seven parses simultaneously, the requests remain concurrent at the Pi tool layer but enter LiteParse one at a time.
+
+Each queued operation receives a fresh worker process. The default timeout is 10 minutes. Set `PI_DOCPARSER_TIMEOUT_MS` to a positive millisecond value when exceptionally large OCR jobs need a different limit. Cancellation terminates the active worker and releases the queue for the next request.
+
+A native worker crash is reported with its exit signal and containment status. Retrying may help after an environmental failure, but repeatedly crashing on one document should be reported upstream with the PDFium/LiteParse crash log.
+
 ## Known limitations
 
+- Native process isolation prevents a parser crash from terminating Pi, but it cannot make every malformed document parse successfully.
+- Document operations are intentionally serialized, so a large batch trades throughput for PDFium stability.
 - OCR quality depends on scan quality, page layout, and the chosen OCR language.
 - Some conversion paths depend on external host tools.
 - Full parse and screenshot outputs are written to temporary files by default, not directly into your repository.

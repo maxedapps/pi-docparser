@@ -1,5 +1,5 @@
 import { truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -10,18 +10,19 @@ import {
   isDependencySetupMessage,
 } from "./deps.ts";
 import { resolveDocumentTarget } from "./input.ts";
-import { loadLiteParseModule } from "./liteparse-module.ts";
 import {
   buildDocumentParsePlan,
   getProvidedRemovedV1Options,
   getRemovedV1OptionsMessage,
 } from "./liteparse-config.ts";
+import { runNativeDocumentJob } from "./native-runner.ts";
+import type { NativeParseResult, NativeScreenshotResult } from "./native-protocol.ts";
 import { DocumentParseSchema } from "./schema.ts";
 import type {
   DocumentParseDetails,
   DocumentParseParams,
   DocumentOutputFormat,
-  InputInspection,
+  LiteParseToolConfig,
   ScreenshotSelection,
 } from "./types.ts";
 
@@ -59,14 +60,8 @@ function buildPreview(output: string): { preview: string; truncated: boolean } {
 type ProgressEmitter = (text: string) => void;
 
 async function renderScreenshots(options: {
-  parser: {
-    screenshot(
-      filePath: string,
-      pageNumbers?: number[],
-    ): Promise<Array<{ pageNum: number; imageBuffer: Buffer }>>;
-  };
+  parserConfig: LiteParseToolConfig;
   screenshotSelection?: ScreenshotSelection;
-  inspection: InputInspection;
   resolvedPath: string;
   outputDir: string;
   signal?: AbortSignal;
@@ -93,20 +88,18 @@ async function renderScreenshots(options: {
 
   try {
     options.emit(`Rendering screenshots for ${selection.description}...`);
-    const screenshots = await options.parser.screenshot(
-      options.resolvedPath,
-      selection.pageNumbers,
+    const result = await runNativeDocumentJob<NativeScreenshotResult>(
+      {
+        operation: "screenshot",
+        filePath: options.resolvedPath,
+        parserConfig: options.parserConfig,
+        pageNumbers: selection.pageNumbers,
+        outputDir: options.outputDir,
+      },
+      { signal: options.signal },
     );
-    const screenshotDir = join(options.outputDir, "screenshots");
-    await mkdir(screenshotDir, { recursive: true });
-
-    const allScreenshotPaths: string[] = [];
-    for (const screenshot of screenshots) {
-      const screenshotPath = join(screenshotDir, `page_${screenshot.pageNum}.png`);
-      await writeFile(screenshotPath, screenshot.imageBuffer);
-      allScreenshotPaths.push(screenshotPath);
-    }
-
+    const allScreenshotPaths = result.screenshots.map((screenshot) => screenshot.outputPath);
+    const screenshotDir = result.screenshotDir;
     const screenshotCount = allScreenshotPaths.length;
     options.emit(
       `Saved ${screenshotCount} screenshot${screenshotCount === 1 ? "" : "s"} to ${screenshotDir}`,
@@ -233,24 +226,26 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
           throw new Error(missingHostDependencyMessage);
         }
 
-        emit("Loading LiteParse...");
-        const { LiteParse } = await loadLiteParseModule();
-        const parser = new LiteParse(plan.parserConfig);
         const outputDir = await mkdtemp(join(tmpdir(), "pi-document-parse-"));
 
-        emit(`Parsing document: ${input.sourcePath}`);
-        const parseResult = await parser.parse(input.resolvedPath);
-        const outputFormat = plan.parserConfig.outputFormat ?? "text";
-        const outputText =
-          outputFormat === "json" ? JSON.stringify(parseResult, null, 2) : parseResult.text;
-        const outputPath = join(outputDir, outputFormat === "json" ? "parsed.json" : "parsed.txt");
-        await writeFile(outputPath, outputText, "utf8");
+        emit(`Parsing document in isolated worker: ${input.sourcePath}`);
+        const parseResult = await runNativeDocumentJob<NativeParseResult>(
+          {
+            operation: "parse",
+            filePath: input.resolvedPath,
+            parserConfig: plan.parserConfig,
+            outputDir,
+          },
+          { signal },
+        );
+        const outputFormat = parseResult.outputFormat;
+        const outputPath = parseResult.outputPath;
+        const outputText = await readFile(outputPath, "utf8");
         emit(`Saved parsed output to ${outputPath}`);
 
         const screenshotResult = await renderScreenshots({
-          parser,
+          parserConfig: plan.parserConfig,
           screenshotSelection: plan.screenshotSelection,
-          inspection: input.inspection,
           resolvedPath: input.resolvedPath,
           outputDir,
           signal,
@@ -264,7 +259,7 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
           resolvedPath: input.resolvedPath,
           outputFormat,
           outputPath,
-          pageCount: parseResult.pages.length,
+          pageCount: parseResult.pageCount,
           screenshotCount: screenshotResult.screenshotCount,
           screenshotDir: screenshotResult.screenshotDir,
           screenshotPathsPreview: screenshotResult.screenshotPathsPreview,
@@ -279,7 +274,7 @@ export function registerDocumentParseTool(pi: ExtensionAPI) {
           outputFormat,
           outputPath,
           outputDir,
-          pageCount: parseResult.pages.length,
+          pageCount: parseResult.pageCount,
           screenshotCount: screenshotResult.screenshotCount,
           screenshotDir: screenshotResult.screenshotDir,
           screenshotPathsPreview: screenshotResult.screenshotPathsPreview,

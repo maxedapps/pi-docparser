@@ -123,6 +123,8 @@ Alternatives:
 
 ## Important constraints and expectations
 
+- Native document operations are process-isolated and share a FIFO queue. Parallel tool calls are accepted but enter LiteParse one at a time, so do not fan out redundant parses when one scoped call is enough.
+- A PDFium `SIGABRT`/`SIGSEGV` is contained in the worker and returned as a tool error instead of terminating Pi. Do not blindly retry the same crashing document repeatedly; narrow the page range or report the document and crash signal upstream.
 - Office documents and spreadsheets may require LibreOffice on the host machine.
 - Image inputs may require ImageMagick on the host machine.
 - The tools surface missing dependencies as friendly errors; do not misdiagnose them as generic parser failures.

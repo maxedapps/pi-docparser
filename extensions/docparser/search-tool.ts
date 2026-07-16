@@ -9,7 +9,8 @@ import {
   getProvidedRemovedV1Options,
   getRemovedV1OptionsMessage,
 } from "./liteparse-config.ts";
-import { loadLiteParseModule } from "./liteparse-module.ts";
+import { runNativeDocumentJob } from "./native-runner.ts";
+import type { NativeSearchHit, NativeSearchResult } from "./native-protocol.ts";
 
 const DocumentSearchSchema = Type.Object({
   path: Type.String({
@@ -82,19 +83,7 @@ const DocumentSearchSchema = Type.Object({
 
 type DocumentSearchParams = Static<typeof DocumentSearchSchema>;
 
-type SearchHit = {
-  pageNum: number;
-  text: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fontName?: string;
-  fontSize?: number;
-  confidence?: number;
-};
-
-function formatHit(hit: SearchHit): string {
+function formatHit(hit: NativeSearchHit): string {
   return `p${hit.pageNum} [${hit.x.toFixed(1)}, ${hit.y.toFixed(1)} ${hit.width.toFixed(1)}×${hit.height.toFixed(1)}] ${hit.text}`;
 }
 
@@ -160,25 +149,19 @@ export function registerDocumentSearchTool(pi: ExtensionAPI) {
           },
           warnings,
         );
-        const { LiteParse, searchItems } = await loadLiteParseModule();
-        const parser = new LiteParse(parserConfig);
-        const parseResult = await parser.parse(input.resolvedPath);
         const maxResults = params.maxResults ?? 50;
-        const hits: SearchHit[] = [];
-
-        for (const page of parseResult.pages) {
-          const pageHits = searchItems(page.textItems, {
+        const searchResult = await runNativeDocumentJob<NativeSearchResult>(
+          {
+            operation: "search",
+            filePath: input.resolvedPath,
+            parserConfig,
             phrase: params.phrase,
             caseSensitive: params.caseSensitive ?? false,
-          });
-
-          for (const hit of pageHits) {
-            hits.push({ ...hit, pageNum: page.pageNum });
-            if (hits.length >= maxResults) break;
-          }
-
-          if (hits.length >= maxResults) break;
-        }
+            maxResults,
+          },
+          { signal },
+        );
+        const hits = searchResult.hits;
 
         const hitLines = hits.map(formatHit).join("\n");
         const truncation = truncateHead(hitLines, {

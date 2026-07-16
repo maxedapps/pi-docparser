@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning.
 
+## [Unreleased]
+
+### Fixed
+
+- upgraded `@llamaindex/liteparse` from `2.0.1` to `2.5.1`, which includes the upstream process-global PDFium lock from commit `d7ccc5e` (`2.0.8+`) that prevents concurrent PDFium heap corruption
+- serialized all native document operations through a module-global FIFO queue
+- moved LiteParse parsing, searching, and screenshot rendering into one-shot child processes so native `SIGABRT`/`SIGSEGV` failures cannot terminate the Pi process
+- added timeout and abort handling that terminates stuck workers and releases the queue
+- added regression tests for seven simultaneous parses, worker `SIGABRT`, timeout, cancellation, queue recovery, and the three public document tools
+
 ## [3.0.0] - 2026-05-28
 
 ### Breaking Changes

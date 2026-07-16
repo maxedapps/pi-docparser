@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,7 +9,8 @@ import { DEFAULT_DPI } from "./constants.ts";
 import { appendDoctorHint, getMissingHostDependencyMessage } from "./deps.ts";
 import { resolveDocumentTarget, resolveScreenshotSelection } from "./input.ts";
 import { getProvidedRemovedV1Options, getRemovedV1OptionsMessage } from "./liteparse-config.ts";
-import { loadLiteParseModule } from "./liteparse-module.ts";
+import { runNativeDocumentJob } from "./native-runner.ts";
+import type { NativeScreenshotResult } from "./native-protocol.ts";
 
 const DocumentScreenshotSchema = Type.Object({
   path: Type.String({
@@ -106,42 +107,29 @@ export function registerDocumentScreenshotTool(pi: ExtensionAPI) {
         }
 
         const selection = params.pages ? resolveScreenshotSelection(params.pages) : undefined;
-        emit(`Loading LiteParse for screenshot rendering...`);
-        const { LiteParse } = await loadLiteParseModule();
-        const parser = new LiteParse({
-          dpi: params.dpi ?? DEFAULT_DPI,
-          password: normalizeOptionalString(params.password),
-          quiet: true,
-        });
-
-        emit(`Rendering screenshots for ${selection?.description ?? "all pages"}...`);
-        const screenshots = await parser.screenshot(input.resolvedPath, selection?.pageNumbers);
         const outputDir = await mkdtemp(join(tmpdir(), "pi-document-screenshot-"));
-        const screenshotDir = join(outputDir, "screenshots");
-        await mkdir(screenshotDir, { recursive: true });
-
-        const detailsScreenshots: Array<{
-          pageNum: number;
-          width: number;
-          height: number;
-          outputPath: string;
-          bytes: number;
-        }> = [];
+        emit(
+          `Rendering screenshots in isolated worker for ${selection?.description ?? "all pages"}...`,
+        );
+        const screenshotResult = await runNativeDocumentJob<NativeScreenshotResult>(
+          {
+            operation: "screenshot",
+            filePath: input.resolvedPath,
+            parserConfig: {
+              dpi: params.dpi ?? DEFAULT_DPI,
+              password: normalizeOptionalString(params.password),
+              quiet: true,
+            },
+            pageNumbers: selection?.pageNumbers,
+            outputDir,
+          },
+          { signal },
+        );
+        const screenshotDir = screenshotResult.screenshotDir;
+        const detailsScreenshots = screenshotResult.screenshots;
         const content: Array<
           { type: "text"; text: string } | { type: "image"; data: string; mimeType: string }
         > = [];
-
-        for (const screenshot of screenshots) {
-          const outputPath = join(screenshotDir, `page_${screenshot.pageNum}.png`);
-          await writeFile(outputPath, screenshot.imageBuffer);
-          detailsScreenshots.push({
-            pageNum: screenshot.pageNum,
-            width: screenshot.width,
-            height: screenshot.height,
-            outputPath,
-            bytes: screenshot.imageBuffer.byteLength,
-          });
-        }
 
         const lines = [
           `Rendered document screenshots: ${input.sourcePath}`,
@@ -161,11 +149,11 @@ export function registerDocumentScreenshotTool(pi: ExtensionAPI) {
         }
 
         content.push({ type: "text", text: lines.join("\n") });
-        for (const screenshot of screenshots) {
+        for (const screenshot of detailsScreenshots) {
           content.push({
             type: "image",
             mimeType: "image/png",
-            data: screenshot.imageBuffer.toString("base64"),
+            data: (await readFile(screenshot.outputPath)).toString("base64"),
           });
         }
 

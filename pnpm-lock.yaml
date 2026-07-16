@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@llamaindex/liteparse':
-        specifier: 2.0.1
-        version: 2.0.1
+        specifier: 2.5.1
+        version: 2.5.1
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 0.74.0
@@ -225,28 +225,46 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@llamaindex/liteparse-darwin-arm64@2.0.1':
-    resolution: {integrity: sha512-/f8hH6R8CEtc5/2QMQvER4gt3RKgvcM4K6OzCvqlEIiJtyob67RkZhkFA8x2h4dAzgAtqMegQCo1vFHs31IPXg==}
+  '@llamaindex/liteparse-darwin-arm64@2.5.1':
+    resolution: {integrity: sha512-+DRoudhLqw0Hgl4zjS103d6CLR8T7Dn8yZeVp3cTp5fQ9DRQk9goL8mgRwmIl9UkYvWyOptP1zPTgI1xfKgd9g==}
     cpu: [arm64]
     os: [darwin]
 
-  '@llamaindex/liteparse-linux-arm64-gnu@2.0.1':
-    resolution: {integrity: sha512-oir+ZNsDs9aAPG4BmYHTAhQRb+wBVTXvWgPDY+qn6bAJjY4qMIrlVbUPSzRnKCXZ+4nuuj7PJsRxkXHrmxoQ5A==}
+  '@llamaindex/liteparse-darwin-x64@2.5.1':
+    resolution: {integrity: sha512-4XDJD8F3R4d2hbfHQLk/bAizYPOySWMBY11SlXTv+VW34rbl6zvd8d/739JlKauFvemx8Cs8kPYlyhz9MVkXSg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@llamaindex/liteparse-linux-arm64-gnu@2.5.1':
+    resolution: {integrity: sha512-CQd++tiLV2coB1EGtv4wysJIEU8N62g76abYTA3oBf1Kpatphj312VgUn5If68E9/ziQXp2ZgZ+tf7IhLt6jwQ==}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
-  '@llamaindex/liteparse-linux-x64-gnu@2.0.1':
-    resolution: {integrity: sha512-cMoAkgMMF9V/Mwy7kkeGMBC0q22xVHGTR27ZYpmh56eQdsLTt7YnjcACNLlD9ULJ5ha7DvKIuS0Bmu+agiJvsg==}
+  '@llamaindex/liteparse-linux-x64-gnu@2.5.1':
+    resolution: {integrity: sha512-oYCEhpUYznx+A7z5Ag8XeHjAGfirm/OE8HDEO4UWs/bx0bHx5mUUZyFf7DeCyYsLqaEOcKUmJ+2wtumg1dmzGA==}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
-  '@llamaindex/liteparse-win32-x64-msvc@2.0.1':
-    resolution: {integrity: sha512-d/CD/Hidf1GL72pQTyy3gKTeJScElDyRZyPDhFzZYHdFBQY/3zRaUfzzdMZGnjhdwMB10uJeuCYux8pKEcW2Kw==}
+  '@llamaindex/liteparse-linux-x64-musl@2.5.1':
+    resolution: {integrity: sha512-tiOWwjuf2DmJTFBasHli+yodFxl0mx4ugoy3ttncA374hGTAtRrAOxcr9NF8icC7NJ0dh5bqd1ymYkt/Z6N3uA==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@llamaindex/liteparse-win32-arm64-msvc@2.5.1':
+    resolution: {integrity: sha512-Dq5lS8afst3T3q7OEV3ZxmLx19auRHvc9lhNpqVED8EaSK5RBmHuFQyZZSTVGvid+cGAE3cpmfbQvhbH0kcp4w==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@llamaindex/liteparse-win32-x64-msvc@2.5.1':
+    resolution: {integrity: sha512-2hfeM9iEUJ75GnNVk086ZYg8kji6eijKEEmy9af0L5dPK6EhDrpREcQHEoKoSQJJwhR7ySIqilu0PBofI7W62Q==}
     cpu: [x64]
     os: [win32]
 
-  '@llamaindex/liteparse@2.0.1':
-    resolution: {integrity: sha512-8LGmIflr6AL3zFqy7PU/bRBIgRJtZWLco6XQc9Hsvk6GKpQ4GFsH6GDlk5HTdvuAbdoDb0g4PYLxd/r8SNCENg==}
+  '@llamaindex/liteparse@2.5.1':
+    resolution: {integrity: sha512-El2QJUimxKsdNG+sqdnltc27zFAtQUBflyeITHFI9Qrz67lBOjulyBE2hUvECfegioqWzqHwAaphblbXxgL8SQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -608,6 +626,7 @@ packages:
   '@smithy/core@3.24.1':
     resolution: {integrity: sha512-3mT7o4qQyUWttYnVK3A0Z/u3Xha3E81tXn32Tz6vjZiUXhBrkEivpw1hBYfh84iFF9CSzkBU9Y1DJ3Q6RQ231g==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to bug in browser bundling instructions https://github.com/smithy-lang/smithy-typescript/issues/2025
 
   '@smithy/credential-provider-imds@4.3.1':
     resolution: {integrity: sha512-0S/acwHnqX4WrjXzhdiDRxsG2s9SC0cpPIK9nZ1R6UOHd+j7uL28+4bHu22urbLk2TVw3fkp6na/+fkUt/pLNQ==}
@@ -1860,26 +1879,38 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@llamaindex/liteparse-darwin-arm64@2.0.1':
+  '@llamaindex/liteparse-darwin-arm64@2.5.1':
     optional: true
 
-  '@llamaindex/liteparse-linux-arm64-gnu@2.0.1':
+  '@llamaindex/liteparse-darwin-x64@2.5.1':
     optional: true
 
-  '@llamaindex/liteparse-linux-x64-gnu@2.0.1':
+  '@llamaindex/liteparse-linux-arm64-gnu@2.5.1':
     optional: true
 
-  '@llamaindex/liteparse-win32-x64-msvc@2.0.1':
+  '@llamaindex/liteparse-linux-x64-gnu@2.5.1':
     optional: true
 
-  '@llamaindex/liteparse@2.0.1':
+  '@llamaindex/liteparse-linux-x64-musl@2.5.1':
+    optional: true
+
+  '@llamaindex/liteparse-win32-arm64-msvc@2.5.1':
+    optional: true
+
+  '@llamaindex/liteparse-win32-x64-msvc@2.5.1':
+    optional: true
+
+  '@llamaindex/liteparse@2.5.1':
     dependencies:
       commander: 12.1.0
     optionalDependencies:
-      '@llamaindex/liteparse-darwin-arm64': 2.0.1
-      '@llamaindex/liteparse-linux-arm64-gnu': 2.0.1
-      '@llamaindex/liteparse-linux-x64-gnu': 2.0.1
-      '@llamaindex/liteparse-win32-x64-msvc': 2.0.1
+      '@llamaindex/liteparse-darwin-arm64': 2.5.1
+      '@llamaindex/liteparse-darwin-x64': 2.5.1
+      '@llamaindex/liteparse-linux-arm64-gnu': 2.5.1
+      '@llamaindex/liteparse-linux-x64-gnu': 2.5.1
+      '@llamaindex/liteparse-linux-x64-musl': 2.5.1
+      '@llamaindex/liteparse-win32-arm64-msvc': 2.5.1
+      '@llamaindex/liteparse-win32-x64-msvc': 2.5.1
 
   '@mariozechner/clipboard-darwin-arm64@0.3.2':
     optional: true

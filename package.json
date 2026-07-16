@@ -38,12 +38,13 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs",
     "check:runtime": "node --input-type=module -e \"await import('./extensions/docparser/index.ts')\"",
-    "check": "oxfmt --check . && oxlint . && tsc -p tsconfig.json && node --input-type=module -e \"await import('./extensions/docparser/index.ts')\"",
+    "check": "oxfmt --check . && oxlint . && tsc -p tsconfig.json && node --test test/*.test.mjs && node --input-type=module -e \"await import('./extensions/docparser/index.ts')\"",
     "pack:dry": "npm pack --dry-run"
   },
   "dependencies": {
-    "@llamaindex/liteparse": "2.0.1"
+    "@llamaindex/liteparse": "2.5.1"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "0.74.0",
