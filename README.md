@@ -41,14 +41,28 @@ The Node floor, safer defaults and hard limits, removal of all-page screenshot b
 
 ## Installation
 
+Install directly with Pi:
+
 ```bash
-pi install npm:pi-docparser
+pi install github:inno1314/pi-docparser
 ```
 
-Or from GitHub:
+Or via Git URL:
 
 ```bash
-pi install git:github.com/maxedapps/pi-docparser
+pi install git+https://github.com/inno1314/pi-docparser.git
+```
+
+### Oh My Pi (`omp`)
+
+```bash
+omp plugin install github:inno1314/pi-docparser
+```
+
+Or upstream npm release:
+
+```bash
+pi install npm:pi-docparser
 ```
 
 ## Example model tool calls

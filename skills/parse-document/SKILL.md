@@ -83,7 +83,8 @@ Use `document_search` when the user asks:
 - to find all mentions of a phrase
 - to identify pages that should be inspected visually
 
-Prefer `targetPages` when the relevant area is known. Use `maxResults` to cap broad searches.
+`maxPages` defaults to `100`. For documents larger than 100 pages, pass `maxPages: 1000` to search the full document, or specify `targetPages` (e.g. `"100-300"`).
+Use `maxResults` to cap broad searches.
 
 ## Screenshot workflow
 

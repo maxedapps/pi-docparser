@@ -14,7 +14,7 @@ import {
   validateWorkerRequest,
   writeSingleFrame,
 } from "./native-protocol.mjs";
-import { projectSearchHit, writeParseOutputFile } from "./parse-output.mjs";
+import { matchPageTextItems, projectSearchHit, writeParseOutputFile } from "./parse-output.mjs";
 
 const PARSED_ARTIFACT_MAX_BYTES = 256 * 1024 * 1024;
 const SCREENSHOT_FILE_MAX_BYTES = 25 * 1024 * 1024;
@@ -75,8 +75,31 @@ async function runParse(request, liteparse) {
 async function runSearch(request, liteparse) {
   const stagingDir = /** @type {string} */ (request.stagingDir);
   try {
-    const parser = new liteparse.LiteParse(liteParseConfig(request));
-    const parseResult = await parser.parse(/** @type {string} */ (request.inputPath));
+    const config = liteParseConfig(request);
+    let parser = new liteparse.LiteParse(config);
+    let parseResult;
+
+    // For PDF files with auto OCR (ocrEnabled true and no custom ocrServerUrl),
+    // attempt fast native-text extraction first (ocrEnabled: false).
+    // If sufficient text items are extracted across the parsed pages, skip heavy OCR.
+    const isPdf =
+      typeof request.inputPath === "string" && request.inputPath.toLowerCase().endsWith(".pdf");
+    if (isPdf && config.ocrEnabled && !config.ocrServerUrl) {
+      const fastParser = new liteparse.LiteParse({ ...config, ocrEnabled: false });
+      const fastResult = await fastParser.parse(/** @type {string} */ (request.inputPath));
+      const totalItems = fastResult.pages.reduce(
+        (acc, p) => acc + (p.textItems ? p.textItems.length : 0),
+        0,
+      );
+      if (totalItems > 0 || fastResult.pages.length === 0) {
+        parseResult = fastResult;
+      } else {
+        parseResult = await parser.parse(/** @type {string} */ (request.inputPath));
+      }
+    } else {
+      parseResult = await parser.parse(/** @type {string} */ (request.inputPath));
+    }
+
     /** @type {Array<Record<string, string | number>>} */
     const hits = [];
     let truncatedByCount = false;
@@ -84,10 +107,24 @@ async function runSearch(request, liteparse) {
     const maxResults = /** @type {number} */ (request.maxResults);
 
     outer: for (const page of parseResult.pages) {
-      const pageHits = liteparse.searchItems(page.textItems, {
-        phrase: /** @type {string} */ (request.phrase),
-        caseSensitive: /** @type {boolean} */ (request.caseSensitive),
-      });
+      /** @type {any[]} */
+      let pageHits = [];
+      if (Array.isArray(page.textItems)) {
+        try {
+          pageHits = liteparse.searchItems(page.textItems, {
+            phrase: /** @type {string} */ (request.phrase),
+            caseSensitive: /** @type {boolean} */ (request.caseSensitive),
+          });
+        } catch {
+          pageHits = [];
+        }
+      }
+      if (pageHits.length === 0) {
+        pageHits = matchPageTextItems(page.textItems, {
+          phrase: /** @type {string} */ (request.phrase),
+          caseSensitive: /** @type {boolean} */ (request.caseSensitive),
+        });
+      }
       for (let index = 0; index < pageHits.length; index += 1) {
         if (hits.length >= maxResults) {
           truncatedByCount = true;

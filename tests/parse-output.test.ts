@@ -6,6 +6,9 @@ import { Writable } from "node:stream";
 import test from "node:test";
 
 import {
+  boundedLevenshtein,
+  matchPageTextItems,
+  normalizeSearchString,
   projectPage,
   streamParseOutput,
   writeParseOutputFile,
@@ -148,4 +151,59 @@ test("partial parse files publish atomically and clean only their own partial on
   await assert.rejects(readFile(failedPartial), /ENOENT/);
   await assert.rejects(readFile(failedOutput), /ENOENT/);
   assert.equal((await readFile(output)).byteLength, metadata.bytes);
+});
+
+test("normalizeSearchString removes diacritics and collapses punctuation/whitespace", () => {
+  assert.equal(normalizeSearchString("Café  au\tlait!"), "cafe au lait");
+  assert.equal(normalizeSearchString("fodhelper.exe,269"), "fodhelper exe 269");
+  assert.equal(normalizeSearchString("SyncBreeze—Server"), "syncbreeze server");
+});
+
+test("boundedLevenshtein respects maxCost and computes distance", () => {
+  assert.equal(boundedLevenshtein("fodhelper", "fodhelper", 2), 0);
+  assert.equal(boundedLevenshtein("fodhelper", "fodhelpr", 2), 1);
+  assert.equal(boundedLevenshtein("fodhelper", "fodhxxypr", 2), 3);
+});
+
+test("matchPageTextItems handles exact, normalized, multi-line, and fuzzy hits", () => {
+  const items = [
+    { text: "7.1.3 Bypassing UAC", x: 10, y: 20, width: 100, height: 15 },
+    {
+      text: "Our UAC bypass is chiefly based on fodhelper.exe,269 a Microsoft support",
+      x: 10,
+      y: 40,
+      width: 200,
+      height: 15,
+    },
+    {
+      text: "application responsible for managing language changes.",
+      x: 10,
+      y: 60,
+      width: 200,
+      height: 15,
+    },
+  ];
+
+  // Exact substring
+  const exact = matchPageTextItems(items, { phrase: "fodhelper.exe" });
+  assert.equal(exact.length, 1);
+  assert.equal(exact[0].text, items[1].text);
+
+  // Case-insensitive & normalized whitespace/punctuation
+  const norm = matchPageTextItems(items, { phrase: "fodhelper exe 269" });
+  assert.equal(norm.length, 1);
+
+  // Multi-line span
+  const multi = matchPageTextItems(items, { phrase: "Microsoft support application responsible" });
+  assert.equal(multi.length, 1);
+  assert.equal(multi[0].y, 40);
+  assert.equal(multi[0].height, 35); // 60 + 15 - 40 = 35
+
+  // Minor typo / fuzzy match
+  const fuzzy = matchPageTextItems(items, { phrase: "fodhelpr" });
+  assert.equal(fuzzy.length, 1);
+
+  // Unrelated query returns 0 hits
+  const unrelated = matchPageTextItems(items, { phrase: "nonexistent query xyz" });
+  assert.equal(unrelated.length, 0);
 });
