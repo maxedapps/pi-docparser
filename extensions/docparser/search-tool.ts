@@ -134,6 +134,7 @@ export function registerDocumentSearchTool(pi: ExtensionAPI, executor: NativeExe
       "Search parsed documents for a phrase and get page + bounding-box hits for visual citations.",
     promptGuidelines: [
       "Use document_search when the user asks where text appears in a document or needs source/citation locations.",
+      "By default, document_search searches the first 100 pages of a document. If searching large documents (>100 pages), specify maxPages (e.g. 1000) or targetPages (e.g. '100-300').",
       "Use targetPages when the relevant section is known; it is faster than searching the whole document.",
       "Use document_screenshot after document_search when the page area needs visual inspection.",
     ],
@@ -187,9 +188,20 @@ export function registerDocumentSearchTool(pi: ExtensionAPI, executor: NativeExe
         const lines = [
           `Searched document: ${input.sourcePath}`,
           `Resolved path: ${input.resolvedPath}`,
+          `Pages searched: ${result.pageCount}`,
           `Phrase: ${params.phrase}`,
           `Hits returned: ${result.hits.length}`,
         ];
+        const effectiveMaxPages = params.maxPages ?? DEFAULT_MAX_PAGES;
+        if (
+          !params.targetPages &&
+          result.pageCount >= effectiveMaxPages &&
+          result.hits.length === 0
+        ) {
+          lines.push(
+            `Note: Search was limited to ${result.pageCount} pages by maxPages (${effectiveMaxPages}). If the document has more pages, increase maxPages or pass targetPages.`,
+          );
+        }
         if (result.truncatedByCount)
           lines.push(`Hit results were truncated at the ${maxResults}-result limit.`);
         if (result.truncatedByBytes)
