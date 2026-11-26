@@ -34,7 +34,7 @@ export const DocumentScreenshotSchema = Type.Object({
   pages: Type.Optional(
     Type.String({
       maxLength: MAX_PAGE_SELECTION_BYTES,
-      description: `Optional explicit page selection for screenshots, e.g. "1-3,8" (maximum ${MAX_SCREENSHOT_PAGES} pages; default: page 1).`,
+      description: `Page selection for screenshots, e.g. "1-3,8" (maximum ${MAX_SCREENSHOT_PAGES} pages; default: page 1).`,
     }),
   ),
   dpi: Type.Optional(
@@ -44,9 +44,7 @@ export const DocumentScreenshotSchema = Type.Object({
       description: `Rendering DPI for screenshots (default: ${DEFAULT_DPI})`,
     }),
   ),
-  password: Type.Optional(
-    Type.String({ description: "Optional password for encrypted or password-protected documents" }),
-  ),
+  password: Type.Optional(Type.String({ description: "Password for encrypted documents" })),
 });
 
 type DocumentScreenshotParams = Static<typeof DocumentScreenshotSchema>;
@@ -136,10 +134,9 @@ export function registerDocumentScreenshotTool(pi: ExtensionAPI, executor: Nativ
   pi.registerTool({
     name: "document_screenshot",
     label: "Document Screenshot",
-    description:
-      "Render up to four local document pages as PNG screenshots with LiteParse v2 and return bounded image blocks plus saved PNG paths.",
+    description: "Render up to four local document pages as PNG image blocks plus saved PNG paths.",
     promptSnippet:
-      "Render bounded document pages as PNG images the model can inspect directly; also saves PNGs to temp files.",
+      "Render document pages as PNG images you can inspect directly; also saves PNGs to temp files.",
     promptGuidelines: [
       "Use document_screenshot when document_parse text is not enough to answer because visual layout, charts, signatures, or figures matter.",
       `Request at most ${MAX_SCREENSHOT_PAGES} explicit pages per call; use bounded repeated calls for more pages.`,

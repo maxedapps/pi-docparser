@@ -37,42 +37,41 @@ export const DocumentSearchSchema = Type.Object({
   path: Type.String({ description: "Path to the document file to search" }),
   phrase: Type.String({
     maxLength: MAX_SEARCH_PHRASE_BYTES,
-    description: `Phrase to search for in the parsed document (maximum ${MAX_SEARCH_PHRASE_BYTES} UTF-8 bytes)`,
+    description: `Phrase to search for (maximum ${MAX_SEARCH_PHRASE_BYTES} UTF-8 bytes)`,
   }),
   caseSensitive: Type.Optional(
     Type.Boolean({
-      description: "Whether phrase matching should be case-sensitive (default: false)",
+      description: "Whether matching is case-sensitive (default: false)",
     }),
   ),
   targetPages: Type.Optional(
     Type.String({
       maxLength: MAX_PAGE_SELECTION_BYTES,
-      description: 'Optional page selection for parsing/searching, e.g. "1-5,10"',
+      description: 'Page selection for parsing/searching, e.g. "1-5,10"',
     }),
   ),
   ocr: Type.Optional(
     StringEnum(["auto", "off"] as const, {
-      description:
-        "OCR mode: auto uses LiteParse OCR behavior, off disables OCR for faster parsing",
+      description: "OCR mode: auto uses LiteParse OCR; off disables OCR for faster parsing",
     }),
   ),
   ocrLanguage: Type.Optional(
-    Type.String({ description: "Optional single OCR language code, e.g. eng, deu, fra, jpn" }),
+    Type.String({ description: "Single OCR language code, e.g. eng, deu, fra, jpn" }),
   ),
   ocrLanguages: Type.Optional(
     Type.Array(Type.String(), {
       minItems: 1,
-      description: "Optional multiple OCR language codes for built-in Tesseract OCR",
+      description: "Multiple OCR language codes for built-in Tesseract OCR",
     }),
   ),
   ocrServerUrl: Type.Optional(
-    Type.String({ description: "Optional HTTP OCR server URL implementing the LiteParse OCR API" }),
+    Type.String({ description: "HTTP OCR server URL implementing the LiteParse OCR API" }),
   ),
   numWorkers: Type.Optional(
     Type.Integer({
       minimum: 1,
       maximum: MAX_NUM_WORKERS,
-      description: `Optional OCR worker count (default: ${DEFAULT_NUM_WORKERS}, maximum: ${MAX_NUM_WORKERS})`,
+      description: `OCR worker count (default: ${DEFAULT_NUM_WORKERS}, maximum: ${MAX_NUM_WORKERS})`,
     }),
   ),
   maxPages: Type.Optional(
@@ -89,12 +88,10 @@ export const DocumentSearchSchema = Type.Object({
       description: `Rendering DPI for OCR (default: ${DEFAULT_DPI})`,
     }),
   ),
-  password: Type.Optional(
-    Type.String({ description: "Optional password for encrypted or password-protected documents" }),
-  ),
+  password: Type.Optional(Type.String({ description: "Password for encrypted documents" })),
   tessdataPath: Type.Optional(
     Type.String({
-      description: "Optional path to Tesseract .traineddata files for offline/custom OCR data",
+      description: "Directory of Tesseract .traineddata files for offline/custom OCR data",
     }),
   ),
   maxResults: Type.Optional(
@@ -129,9 +126,8 @@ export function registerDocumentSearchTool(pi: ExtensionAPI, executor: NativeExe
     name: "document_search",
     label: "Document Search",
     description:
-      "Search a local document with LiteParse v2 and return bounded projected phrase hits with page numbers and bounding boxes.",
-    promptSnippet:
-      "Search parsed documents for a phrase and get page + bounding-box hits for visual citations.",
+      "Search a local document and return bounded phrase hits with page numbers and bounding boxes.",
+    promptSnippet: "Find a phrase and get page + bounding-box hits for visual citations.",
     promptGuidelines: [
       "Use document_search when the user asks where text appears in a document or needs source/citation locations.",
       "Use targetPages when the relevant section is known; it is faster than searching the whole document.",

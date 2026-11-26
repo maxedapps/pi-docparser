@@ -19,50 +19,49 @@ export const DocumentParseSchema = Type.Object({
   }),
   format: Type.Optional(
     StringEnum(["text", "json"] as const, {
-      description: "Output format for the parsed document (default: text)",
+      description: "Output format (default: text)",
     }),
   ),
   targetPages: Type.Optional(
     Type.String({
       maxLength: MAX_PAGE_SELECTION_BYTES,
-      description: 'Optional page selection for parsing, e.g. "1-5,10,15-20"',
+      description: 'Page selection for parsing, e.g. "1-5,10,15-20"',
     }),
   ),
   screenshotPages: Type.Optional(
     Type.String({
       maxLength: MAX_PAGE_SELECTION_BYTES,
-      description: `Optional explicit page selection for screenshots, e.g. "1-3,8" (maximum ${MAX_SCREENSHOT_PAGES} pages). Screenshots are saved as PNG files.`,
+      description: `Page selection for screenshots, e.g. "1-3,8" (maximum ${MAX_SCREENSHOT_PAGES} pages; saved as PNGs).`,
     }),
   ),
   ocr: Type.Optional(
     StringEnum(["auto", "off"] as const, {
-      description:
-        "OCR mode: auto uses LiteParse OCR behavior, off disables OCR for faster parsing",
+      description: "OCR mode: auto uses LiteParse OCR; off disables OCR for faster parsing",
     }),
   ),
   ocrLanguage: Type.Optional(
     Type.String({
       description:
-        "Optional single OCR language code. Built-in Tesseract typically uses ISO 639-3 codes such as eng, deu, fra, jpn. Many HTTP OCR servers instead expect ISO 639-1 codes such as en, de, fr, ja.",
+        "Single OCR language code. Built-in Tesseract expects ISO 639-3 codes (eng, deu, fra, jpn); HTTP OCR servers often expect ISO 639-1 codes (en, de, fr, ja).",
     }),
   ),
   ocrLanguages: Type.Optional(
     Type.Array(Type.String(), {
       minItems: 1,
       description:
-        "Optional multiple OCR language codes. For built-in Tesseract they are joined into a multilingual language string. For HTTP OCR servers, only the first code is forwarded.",
+        "Multiple OCR language codes; joined into one multilingual string for built-in Tesseract, only the first forwarded to HTTP OCR servers.",
     }),
   ),
   ocrServerUrl: Type.Optional(
     Type.String({
-      description: "Optional HTTP OCR server URL implementing the LiteParse OCR API",
+      description: "HTTP OCR server URL implementing the LiteParse OCR API",
     }),
   ),
   numWorkers: Type.Optional(
     Type.Integer({
       minimum: 1,
       maximum: MAX_NUM_WORKERS,
-      description: `Optional OCR worker count (default: ${DEFAULT_NUM_WORKERS}, maximum: ${MAX_NUM_WORKERS})`,
+      description: `OCR worker count (default: ${DEFAULT_NUM_WORKERS}, maximum: ${MAX_NUM_WORKERS})`,
     }),
   ),
   maxPages: Type.Optional(
@@ -86,13 +85,12 @@ export const DocumentParseSchema = Type.Object({
   ),
   password: Type.Optional(
     Type.String({
-      description: "Optional password for encrypted or password-protected documents",
+      description: "Password for encrypted documents",
     }),
   ),
   tessdataPath: Type.Optional(
     Type.String({
-      description:
-        "Optional path to a directory containing Tesseract .traineddata files for offline/custom OCR data",
+      description: "Directory of Tesseract .traineddata files for offline/custom OCR data",
     }),
   ),
 });

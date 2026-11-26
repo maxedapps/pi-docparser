@@ -7,6 +7,20 @@ import test from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import {
+  DEFAULT_DPI,
+  DEFAULT_MAX_PAGES,
+  DEFAULT_MAX_RESULTS,
+  MAX_DPI,
+  MAX_NUM_WORKERS,
+  MAX_PAGES,
+  MAX_PAGE_SELECTION_BYTES,
+  MAX_RESULTS,
+  MAX_SCREENSHOT_PAGES,
+  MAX_SEARCH_PHRASE_BYTES,
+  MIN_DPI,
+} from "../extensions/docparser/constants.ts";
+
+import {
   NativeCancellationError,
   NativeCrashError,
   NativeTimeoutError,
@@ -29,9 +43,41 @@ import type {
 
 type RegisteredTool = {
   name: string;
+  description?: string;
+  parameters?: ToolDeclaration;
+  promptSnippet?: string;
+  promptGuidelines?: string[];
   executionMode?: string;
   execute: (...args: any[]) => Promise<any>;
 };
+
+type DeclarationProperty = {
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+  maxLength?: number;
+  minItems?: number;
+  description?: string;
+};
+
+type ToolDeclaration = {
+  required?: string[];
+  properties: Record<string, DeclarationProperty>;
+};
+
+function declarationOf(tool: RegisteredTool): { bytes: number; schema: ToolDeclaration } {
+  assert.ok(tool.parameters, `${tool.name} must declare parameters`);
+  const bytes = Buffer.byteLength(
+    JSON.stringify({ name: tool.name, description: tool.description, parameters: tool.parameters }),
+    "utf8",
+  );
+  return { bytes, schema: tool.parameters };
+}
+
+function bounds(property: DeclarationProperty | undefined) {
+  assert.ok(property, "expected schema property");
+  return { minimum: property.minimum, maximum: property.maximum };
+}
 
 class FakeExecutor implements NativeExecutor {
   calls: Array<{ job: NativeJob; options?: NativeExecuteOptions }> = [];
@@ -314,4 +360,120 @@ test("pre-start cancellation is stable and native timeout/crash categories remai
     execute(captureTools(crash).get("document_screenshot")!, { path: input }),
     /worker crashed/i,
   );
+});
+
+test("tool declarations preserve fields, enums, defaults, and limits within bounded prose", () => {
+  const tools = captureTools(new FakeExecutor());
+  const parse = declarationOf(tools.get("document_parse")!);
+  const search = declarationOf(tools.get("document_search")!);
+  const screenshot = declarationOf(tools.get("document_screenshot")!);
+
+  assert.deepEqual(Object.keys(parse.schema.properties), [
+    "path",
+    "format",
+    "targetPages",
+    "screenshotPages",
+    "ocr",
+    "ocrLanguage",
+    "ocrLanguages",
+    "ocrServerUrl",
+    "numWorkers",
+    "maxPages",
+    "dpi",
+    "preserveSmallText",
+    "password",
+    "tessdataPath",
+  ]);
+  assert.deepEqual(Object.keys(search.schema.properties), [
+    "path",
+    "phrase",
+    "caseSensitive",
+    "targetPages",
+    "ocr",
+    "ocrLanguage",
+    "ocrLanguages",
+    "ocrServerUrl",
+    "numWorkers",
+    "maxPages",
+    "dpi",
+    "password",
+    "tessdataPath",
+    "maxResults",
+  ]);
+  assert.deepEqual(Object.keys(screenshot.schema.properties), ["path", "pages", "dpi", "password"]);
+
+  assert.deepEqual(parse.schema.required, ["path"]);
+  assert.deepEqual(search.schema.required, ["path", "phrase"]);
+  assert.deepEqual(screenshot.schema.required, ["path"]);
+
+  assert.deepEqual(parse.schema.properties.format?.enum, ["text", "json"]);
+  assert.deepEqual(parse.schema.properties.ocr?.enum, ["auto", "off"]);
+  assert.deepEqual(search.schema.properties.ocr?.enum, ["auto", "off"]);
+  assert.equal(parse.schema.properties.ocrLanguages?.minItems, 1);
+  assert.equal(search.schema.properties.ocrLanguages?.minItems, 1);
+
+  assert.deepEqual(bounds(parse.schema.properties.maxPages), { minimum: 1, maximum: MAX_PAGES });
+  assert.deepEqual(bounds(parse.schema.properties.numWorkers), {
+    minimum: 1,
+    maximum: MAX_NUM_WORKERS,
+  });
+  assert.deepEqual(bounds(parse.schema.properties.dpi), { minimum: MIN_DPI, maximum: MAX_DPI });
+  assert.deepEqual(bounds(search.schema.properties.maxPages), { minimum: 1, maximum: MAX_PAGES });
+  assert.deepEqual(bounds(search.schema.properties.numWorkers), {
+    minimum: 1,
+    maximum: MAX_NUM_WORKERS,
+  });
+  assert.deepEqual(bounds(search.schema.properties.dpi), { minimum: MIN_DPI, maximum: MAX_DPI });
+  assert.deepEqual(bounds(search.schema.properties.maxResults), {
+    minimum: 1,
+    maximum: MAX_RESULTS,
+  });
+  assert.deepEqual(bounds(screenshot.schema.properties.dpi), {
+    minimum: MIN_DPI,
+    maximum: MAX_DPI,
+  });
+  assert.equal(parse.schema.properties.targetPages?.maxLength, MAX_PAGE_SELECTION_BYTES);
+  assert.equal(parse.schema.properties.screenshotPages?.maxLength, MAX_PAGE_SELECTION_BYTES);
+  assert.equal(search.schema.properties.phrase?.maxLength, MAX_SEARCH_PHRASE_BYTES);
+  assert.equal(search.schema.properties.targetPages?.maxLength, MAX_PAGE_SELECTION_BYTES);
+  assert.equal(screenshot.schema.properties.pages?.maxLength, MAX_PAGE_SELECTION_BYTES);
+
+  const parseDescriptions = JSON.stringify(parse.schema.properties);
+  assert.match(parseDescriptions, /default: text/);
+  assert.match(
+    parseDescriptions,
+    new RegExp(`default: ${DEFAULT_MAX_PAGES}, maximum: ${MAX_PAGES}`),
+  );
+  assert.match(parseDescriptions, new RegExp(`default: ${DEFAULT_DPI}`));
+  assert.match(parseDescriptions, /eng, deu, fra, jpn/);
+  assert.match(parseDescriptions, /\.traineddata/);
+  const searchDescriptions = JSON.stringify(search.schema.properties);
+  assert.match(
+    searchDescriptions,
+    new RegExp(`default: ${DEFAULT_MAX_RESULTS}, maximum: ${MAX_RESULTS}`),
+  );
+  assert.match(searchDescriptions, new RegExp(`maximum ${MAX_SEARCH_PHRASE_BYTES} UTF-8 bytes`));
+  const screenshotDescriptions = JSON.stringify(screenshot.schema.properties);
+  assert.match(screenshotDescriptions, /default: page 1/);
+  assert.match(screenshotDescriptions, new RegExp(`maximum ${MAX_SCREENSHOT_PAGES} pages`));
+
+  assert.match(tools.get("document_parse")?.description ?? "", /LiteParse v2/);
+  assert.match(tools.get("document_parse")?.description ?? "", /PDF, DOCX, PPTX, XLSX, CSV/);
+  for (const name of ["document_parse", "document_search", "document_screenshot"]) {
+    const tool = tools.get(name)!;
+    assert.ok(tool.promptSnippet, `${name} must keep a prompt snippet`);
+    assert.equal(tool.promptGuidelines?.length, 3, `${name} must keep its prompt guidelines`);
+  }
+
+  const budgets = { document_parse: 2250, document_search: 1880, document_screenshot: 640 };
+  let declaredTotal = 0;
+  for (const [name, budget] of Object.entries(budgets)) {
+    const declared = declarationOf(tools.get(name)!);
+    declaredTotal += declared.bytes;
+    assert.ok(
+      declared.bytes <= budget,
+      `${name} declaration is ${declared.bytes} bytes (budget ${budget})`,
+    );
+  }
+  assert.ok(declaredTotal <= 4750, `tool declarations total ${declaredTotal} bytes`);
 });

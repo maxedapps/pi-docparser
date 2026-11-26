@@ -173,9 +173,9 @@ export function registerDocumentParseTool(pi: ExtensionAPI, executor: NativeExec
     name: "document_parse",
     label: "Document Parse",
     description:
-      "Parse local documents with bundled LiteParse v2 support. Supports PDF, DOCX, PPTX, XLSX, CSV, and common images. Returns bounded projected text or JSON saved to temp files plus metadata and optional screenshots.",
+      "Parse local documents with bundled LiteParse v2 (PDF, DOCX, PPTX, XLSX, CSV, images) to bounded text or projected JSON saved to temp files, plus metadata and optional screenshots.",
     promptSnippet:
-      "Parse local documents to text or stable projected JSON with OCR, bounding boxes, page ranges, password support, offline OCR data, and optional screenshots.",
+      "Extract text or stable projected JSON from local documents with page ranges, OCR, passwords, and optional screenshots.",
     promptGuidelines: [
       "Use this tool instead of composing LiteParse CLI commands manually when the user wants local document parsing.",
       "After this tool returns output or screenshot paths, use read on those files when you need the full parsed content or to inspect generated screenshots.",
